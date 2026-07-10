@@ -7,7 +7,7 @@
 .flibup-overlay {
 	position: fixed;
 	inset: 0;
-	z-index: 2147483000;
+	z-index: -1;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -42,6 +42,7 @@
 }
 
 .flibup-overlay.flibup-is-open {
+	z-index: 2147483000;
 	opacity: 1;
 }
 
@@ -199,6 +200,7 @@ body.flibup-no-scroll {
 	.flibup-overlay {
 		padding: 12px;
 	}
+
 	.flibup-dialog {
 		width: 100%;
 		max-width: 100%;
@@ -207,6 +209,7 @@ body.flibup-no-scroll {
 
 /* Respect de prefers-reduced-motion. */
 @media (prefers-reduced-motion: reduce) {
+
 	.flibup-overlay,
 	.flibup-dialog,
 	.flibup-button {
