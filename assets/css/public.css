@@ -1,0 +1,215 @@
+/**
+ * Flib'Up — styles publics.
+ * Toutes les valeurs personnalisables passent par des variables CSS définies
+ * en inline sur l'élément .flibup-overlay.
+ */
+
+.flibup-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 2147483000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	box-sizing: border-box;
+	overflow-y: auto;
+	background-color: var(--flibup-overlay-color, #000);
+	opacity: 0;
+	transition: opacity var(--flibup-anim-speed, 250ms) ease;
+	/* L'opacité de couleur est gérée via une pseudo-couche pour ne pas
+	   atténuer la pop-up elle-même. */
+}
+
+/* Couche colorée du masque (permet d'appliquer opacité + flou sans toucher
+   à la pop-up qui est au-dessus). */
+.flibup-overlay::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	background-color: var(--flibup-overlay-color, #000);
+	opacity: var(--flibup-overlay-opacity, 0.6);
+	z-index: -1;
+}
+
+.flibup-overlay {
+	background-color: transparent;
+}
+
+.flibup-has-blur {
+	backdrop-filter: blur(var(--flibup-overlay-blur, 0px));
+	-webkit-backdrop-filter: blur(var(--flibup-overlay-blur, 0px));
+}
+
+.flibup-overlay.flibup-is-open {
+	opacity: 1;
+}
+
+.flibup-dialog {
+	position: relative;
+	box-sizing: border-box;
+	width: var(--flibup-width, 600px);
+	max-width: var(--flibup-max-width, 90vw);
+	min-height: var(--flibup-min-height, auto);
+	max-height: var(--flibup-max-height, 85vh);
+	overflow-y: auto;
+	margin: auto;
+	padding: var(--flibup-padding, 32px);
+	background: var(--flibup-bg, #fff);
+	color: var(--flibup-text-color, #333);
+	border-radius: var(--flibup-radius, 8px);
+	text-align: var(--flibup-text-align, left);
+	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+	transform: translateY(8px) scale(0.98);
+	transition: transform var(--flibup-anim-speed, 250ms) ease;
+}
+
+.flibup-overlay.flibup-is-open .flibup-dialog {
+	transform: translateY(0) scale(1);
+}
+
+.flibup-title {
+	margin: 0 0 16px;
+	font-size: var(--flibup-title-size, 24px);
+	line-height: 1.25;
+	color: var(--flibup-title-color, #111);
+}
+
+.flibup-content {
+	font-size: var(--flibup-content-size, 16px);
+	line-height: 1.55;
+}
+
+.flibup-content :where(p) {
+	margin: 0 0 1em;
+}
+
+.flibup-content :where(p):last-child {
+	margin-bottom: 0;
+}
+
+.flibup-actions {
+	margin-top: 24px;
+}
+
+.flibup-button {
+	display: inline-block;
+	box-sizing: border-box;
+	width: var(--flibup-btn-width, auto);
+	padding: var(--flibup-btn-padding, 12px 20px);
+	font-size: var(--flibup-btn-text-size, 16px);
+	line-height: 1.2;
+	text-align: center;
+	text-decoration: none;
+	border: 0;
+	border-radius: 6px;
+	cursor: pointer;
+	background: var(--flibup-btn-bg, #1a7d33);
+	color: var(--flibup-btn-color, #fff);
+	transition: background-color 0.15s ease;
+}
+
+.flibup-button:hover,
+.flibup-button:focus {
+	background: var(--flibup-btn-hover, #125b25);
+	color: var(--flibup-btn-color, #fff);
+}
+
+/* --- Bouton de fermeture --- */
+.flibup-close {
+	position: absolute;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--flibup-close-hit, 40px);
+	height: var(--flibup-close-hit, 40px);
+	padding: 0;
+	margin: 0;
+	border: 0;
+	cursor: pointer;
+	background: var(--flibup-close-bg, transparent);
+	border-radius: var(--flibup-close-bg-radius, 50%);
+	color: var(--flibup-close-color, #333);
+	font-size: var(--flibup-close-size, 20px);
+	line-height: 1;
+	z-index: 2;
+	transition: color 0.15s ease;
+}
+
+.flibup-close:hover,
+.flibup-close:focus {
+	color: var(--flibup-close-hover, #000);
+}
+
+.flibup-close:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
+.flibup-close-icon {
+	display: block;
+	width: 1em;
+	height: 1em;
+}
+
+/* Positions : intérieur */
+.flibup-close-inside-tr .flibup-close {
+	top: var(--flibup-close-offset-y, 12px);
+	right: var(--flibup-close-offset-x, 12px);
+}
+
+.flibup-close-inside-tl .flibup-close {
+	top: var(--flibup-close-offset-y, 12px);
+	left: var(--flibup-close-offset-x, 12px);
+}
+
+/* Positions : extérieur (au-dessus du coin, décalé vers l'extérieur) */
+.flibup-close-outside-tr .flibup-close {
+	top: calc(var(--flibup-close-offset-y, 12px) * -1);
+	right: calc(var(--flibup-close-offset-x, 12px) * -1);
+	transform: translate(50%, -50%);
+}
+
+.flibup-close-outside-tl .flibup-close {
+	top: calc(var(--flibup-close-offset-y, 12px) * -1);
+	left: calc(var(--flibup-close-offset-x, 12px) * -1);
+	transform: translate(-50%, -50%);
+}
+
+/* La pop-up doit rester accessible : on autorise le débordement du bouton
+   externe tout en gardant le contenu scrollable. */
+.flibup-close-outside-tr,
+.flibup-close-outside-tl {
+	overflow: visible;
+}
+
+.flibup-close-outside-tr .flibup-content,
+.flibup-close-outside-tl .flibup-content {
+	overflow: visible;
+}
+
+/* Blocage du défilement de la page. */
+html.flibup-no-scroll,
+body.flibup-no-scroll {
+	overflow: hidden !important;
+}
+
+/* Responsive mobile. */
+@media (max-width: 600px) {
+	.flibup-overlay {
+		padding: 12px;
+	}
+	.flibup-dialog {
+		width: 100%;
+		max-width: 100%;
+	}
+}
+
+/* Respect de prefers-reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+	.flibup-overlay,
+	.flibup-dialog,
+	.flibup-button {
+		transition: none !important;
+	}
+}

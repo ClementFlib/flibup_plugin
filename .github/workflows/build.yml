@@ -1,0 +1,47 @@
+name: Build plugin ZIP
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and attach flib-up.zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create clean build directory
+        run: |
+          mkdir -p build/flib-up
+          # Copie uniquement les fichiers nécessaires au plugin dans le dossier
+          # racine « flib-up » (nom attendu par WordPress).
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='build' \
+            --exclude='*.zip' \
+            --exclude='.gitignore' \
+            --exclude='.gitattributes' \
+            --exclude='node_modules' \
+            ./ build/flib-up/
+
+      - name: Create ZIP archive
+        run: |
+          cd build
+          zip -r ../flib-up.zip flib-up
+          cd ..
+          unzip -l flib-up.zip
+
+      - name: Attach ZIP to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: flib-up.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

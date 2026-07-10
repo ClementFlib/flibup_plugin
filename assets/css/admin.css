@@ -1,0 +1,130 @@
+/**
+ * Flib'Up — styles d'administration.
+ */
+
+.flibup-admin .flibup-topbar {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+	padding: 8px 0 12px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid #e2e4e7;
+}
+
+.flibup-admin .flibup-enabled {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.flibup-admin .flibup-topbar .description {
+	flex-basis: 100%;
+	margin: 0;
+}
+
+.flibup-tabs {
+	margin-top: 8px;
+}
+
+.flibup-tab {
+	display: none;
+	padding-top: 12px;
+}
+
+.flibup-tab.flibup-tab-active {
+	display: block;
+}
+
+.flibup-tab .form-table th {
+	width: 220px;
+}
+
+.flibup-selected-wrap {
+	padding: 12px 16px;
+	margin: 8px 0 16px;
+	background: #f6f7f7;
+	border: 1px solid #e2e4e7;
+	border-radius: 4px;
+}
+
+/* Sélecteur d'ID avec recherche. */
+.flibup-id-selector {
+	position: relative;
+	margin: 0 0 18px;
+	max-width: 640px;
+}
+
+.flibup-id-label {
+	display: block;
+	margin-bottom: 4px;
+}
+
+.flibup-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.flibup-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 8px;
+	background: #2271b1;
+	color: #fff;
+	border-radius: 3px;
+	font-size: 12px;
+}
+
+.flibup-chip-remove {
+	border: 0;
+	background: transparent;
+	color: #fff;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1;
+	padding: 0;
+}
+
+.flibup-id-results {
+	position: absolute;
+	z-index: 20;
+	left: 0;
+	right: 0;
+	margin: 2px 0 0;
+	max-height: 240px;
+	overflow-y: auto;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+	list-style: none;
+}
+
+.flibup-id-results li {
+	margin: 0;
+	padding: 8px 10px;
+	cursor: pointer;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.flibup-id-results li:last-child {
+	border-bottom: 0;
+}
+
+.flibup-id-results li:hover,
+.flibup-id-results li.flibup-active {
+	background: #f0f6fc;
+}
+
+.flibup-id-results li.flibup-empty {
+	cursor: default;
+	color: #646970;
+}
+
+/* Sections conditionnelles masquées. */
+.flibup-hidden {
+	display: none !important;
+}
