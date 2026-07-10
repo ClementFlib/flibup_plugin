@@ -2,18 +2,18 @@
 
 /**
  * Plugin Name:       Flib'Up
- * Plugin URI:        https://github.com/les-flibustiers/flib-up
+ * Plugin URI:        https://github.com/ClementFlib/flibup_plugin
  * Description:       Création, configuration, programmation et affichage de fenêtres pop-up sur WordPress. Ciblage des pages, fréquence, programmation des dates, accessibilité et mise à jour depuis GitHub.
  * Version:           1.0.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Les Flibustiers
- * Author URI:        https://lesflibustiers.fr
+ * Author URI:        https://les-flibustiers.fr
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       flib-up
  * Domain Path:       /languages
- * Update URI:        https://github.com/les-flibustiers/flib-up
+ * Update URI:        https://github.com/ClementFlib/flibup_plugin
  *
  * @package FlibUp
  */
