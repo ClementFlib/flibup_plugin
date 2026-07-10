@@ -46,6 +46,43 @@ class Updater
 	}
 
 	/**
+	 * Retourne les icônes du plugin.
+	 *
+	 * @return array
+	 */
+	private function get_icons()
+	{
+		return array(
+			'1x'      => esc_url_raw(
+				FLIBUP_URL . 'assets/images/icon-128x128.png'
+			),
+			'2x'      => esc_url_raw(
+				FLIBUP_URL . 'assets/images/icon-256x256.png'
+			),
+			'default' => esc_url_raw(
+				FLIBUP_URL . 'assets/images/icon-128x128.png'
+			),
+		);
+	}
+
+	/**
+	 * Retourne les bannières du plugin.
+	 *
+	 * @return array
+	 */
+	private function get_banners()
+	{
+		return array(
+			'low'  => esc_url_raw(
+				FLIBUP_URL . 'assets/images/banner-772x250.png'
+			),
+			'high' => esc_url_raw(
+				FLIBUP_URL . 'assets/images/banner-1544x500.png'
+			),
+		);
+	}
+
+	/**
 	 * Accroche les hooks.
 	 *
 	 * @return void
@@ -222,14 +259,15 @@ class Updater
 
 		if (version_compare($release['version'], FLIBUP_VERSION, '>')) {
 			$item = array(
-				'id'          => $this->basename,
-				'slug'        => $this->slug,
-				'plugin'      => $this->basename,
-				'new_version' => $release['version'],
-				'url'         => 'https://github.com/' . Settings::github_user() . '/' . Settings::github_repo(),
-				'package'     => $release['zip_url'],
-				'tested'      => '',
-				'requires'    => '',
+				'id'           => $this->basename,
+				'slug'         => $this->slug,
+				'plugin'       => $this->basename,
+				'new_version'  => $release['version'],
+				'url'          => 'https://github.com/' . Settings::github_user() . '/' . Settings::github_repo(),
+				'package'      => $release['zip_url'],
+				'icons'        => $this->get_icons(),
+				'tested'       => '',
+				'requires'     => '6.0',
 				'requires_php' => '8.1',
 			);
 			$transient->response[$this->basename] = (object) $item;
@@ -242,6 +280,7 @@ class Updater
 				'new_version' => FLIBUP_VERSION,
 				'url'         => 'https://github.com/' . Settings::github_user() . '/' . Settings::github_repo(),
 				'package'     => '',
+				'icons'       => $this->get_icons(),
 			);
 			$transient->no_update[$this->basename] = (object) $item;
 		}
