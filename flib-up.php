@@ -4,7 +4,7 @@
  * Plugin Name:       Flib'Up
  * Plugin URI:        https://github.com/ClementFlib/flibup_plugin
  * Description:       Création, configuration, programmation et affichage de fenêtres pop-up sur WordPress. Ciblage des pages, fréquence, programmation des dates, accessibilité et mise à jour depuis GitHub.
- * Version:           1.0.6
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Les Flibustiers
@@ -31,7 +31,7 @@ if (! defined('ABSPATH')) {
  * ---------------------------------------------------------------------------
  */
 
-define('FLIBUP_VERSION', '1.0.6');
+define('FLIBUP_VERSION', '1.1.0');
 define('FLIBUP_FILE', __FILE__);
 define('FLIBUP_DIR', plugin_dir_path(__FILE__));
 define('FLIBUP_URL', plugin_dir_url(__FILE__));

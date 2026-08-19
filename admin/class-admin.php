@@ -186,14 +186,40 @@ class Admin {
 
 		// --- Contenu ---
 		$clean['visible_title'] = sanitize_text_field( $get( 'flibup_visible_title' ) );
-		$clean['content']       = wp_kses_post( $get( 'flibup_content' ) );
+		$clean['content']       = flibup_sanitize_content( $get( 'flibup_content' ) );
 		$clean['button_text']   = sanitize_text_field( $get( 'flibup_button_text' ) );
 		$clean['button_url']    = esc_url_raw( $get( 'flibup_button_url' ) );
 		$target                 = $get( 'flibup_button_target' );
 		$clean['button_target'] = ( '_blank' === $target ) ? '_blank' : '_self';
 
+		// --- Image ---
+		$clean['image_id']  = absint( $get( 'flibup_image_id', 0 ) );
+		$clean['image_url'] = esc_url_raw( $get( 'flibup_image_url' ) );
+		$clean['image_alt'] = sanitize_text_field( $get( 'flibup_image_alt' ) );
+
+		$img_pos                  = $get( 'flibup_image_position' );
+		$allowed_img_pos          = array_keys( flibup_image_positions() );
+		$clean['image_position']  = in_array( $img_pos, $allowed_img_pos, true ) ? $img_pos : 'above_title';
+
+		$img_width             = trim( (string) $get( 'flibup_image_width' ) );
+		$clean['image_width']  = ( 'auto' === $img_width )
+			? 'auto'
+			: flibup_sanitize_css_length( $img_width, '100%' );
+
+		$img_align            = $get( 'flibup_image_align' );
+		$clean['image_align'] = in_array( $img_align, array( 'left', 'center', 'right' ), true ) ? $img_align : 'center';
+		$clean['image_radius'] = flibup_sanitize_css_length( $get( 'flibup_image_radius' ), '0px' );
+		$clean['image_link']   = esc_url_raw( $get( 'flibup_image_link' ) );
+
 		// --- Activation ---
 		$clean['enabled'] = ! empty( $src['flibup_enabled'] ) ? 1 : 0;
+
+		// --- Position à l'écran ---
+		$position           = $get( 'flibup_position' );
+		$allowed_positions  = array_keys( flibup_positions() );
+		$clean['position']  = in_array( $position, $allowed_positions, true ) ? $position : 'center';
+		$clean['offset_x']  = flibup_sanitize_int_range( $get( 'flibup_offset_x' ), 0, 400, 20 );
+		$clean['offset_y']  = flibup_sanitize_int_range( $get( 'flibup_offset_y' ), 0, 400, 20 );
 
 		// --- Dimensions ---
 		$clean['width']     = flibup_compose_length( $get( 'flibup_width_val' ), $get( 'flibup_width_unit' ), 'px' );
@@ -254,10 +280,12 @@ class Admin {
 
 		// --- Déclenchement ---
 		$tmode                 = $get( 'flibup_trigger_mode' );
-		$clean['trigger_mode'] = ( 'delay' === $tmode ) ? 'delay' : 'immediate';
+		$clean['trigger_mode'] = in_array( $tmode, array( 'immediate', 'delay', 'click' ), true ) ? $tmode : 'immediate';
 		$clean['trigger_delay'] = flibup_sanitize_int_range( $get( 'flibup_trigger_delay' ), 0, 600000, 0 );
 		$tunit                  = $get( 'flibup_trigger_delay_unit' );
 		$clean['trigger_delay_unit'] = ( 'ms' === $tunit ) ? 'ms' : 's';
+		$clean['trigger_selector']   = self::sanitize_selector( $get( 'flibup_trigger_selector' ) );
+		$clean['trigger_ignore_freq'] = ! empty( $src['flibup_trigger_ignore_freq'] ) ? 1 : 0;
 
 		// --- Programmation ---
 		$clean['start_datetime'] = self::sanitize_datetime( $get( 'flibup_start_datetime' ) );
@@ -269,6 +297,7 @@ class Admin {
 		$clean['overlay_transparent'] = ! empty( $src['flibup_overlay_transparent'] ) ? 1 : 0;
 		$clean['overlay_blur']        = ! empty( $src['flibup_overlay_blur'] ) ? 1 : 0;
 		$clean['overlay_blur_px']     = flibup_sanitize_int_range( $get( 'flibup_overlay_blur_px' ), 0, 50, 4 );
+		$clean['overlay_passthrough'] = ! empty( $src['flibup_overlay_passthrough'] ) ? 1 : 0;
 		$clean['anim_speed']          = flibup_sanitize_int_range( $get( 'flibup_anim_speed' ), 0, 5000, 250 );
 		$clean['anim_disabled']       = ! empty( $src['flibup_anim_disabled'] ) ? 1 : 0;
 		$clean['block_scroll']        = ! empty( $src['flibup_block_scroll'] ) ? 1 : 0;
@@ -320,6 +349,29 @@ class Admin {
 			$clean[] = $s;
 		}
 		return implode( ' ', $clean );
+	}
+
+	/**
+	 * Sanitise un sélecteur CSS saisi par l'administrateur.
+	 *
+	 * Le sélecteur est réinjecté dans un attribut HTML (échappé) puis évalué
+	 * par `element.closest()` : on retire tout ce qui pourrait servir à autre
+	 * chose qu'un ciblage CSS et on borne la longueur.
+	 *
+	 * @param mixed $value Valeur saisie.
+	 * @return string
+	 */
+	private static function sanitize_selector( $value ) {
+		$value = is_scalar( $value ) ? trim( (string) $value ) : '';
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$value = wp_strip_all_tags( $value );
+		// Caractères utiles à un sélecteur CSS uniquement.
+		$value = preg_replace( '/[^A-Za-z0-9 _\-.#\[\]=\'"^$*~|:(),>+]/', '', $value );
+
+		return mb_substr( (string) $value, 0, 500 );
 	}
 
 	/**
@@ -384,6 +436,8 @@ class Admin {
 
 		if ( $is_popup_edit ) {
 			wp_enqueue_style( 'wp-color-picker' );
+			// Nécessaire au sélecteur d'image et aux boutons média de l'éditeur.
+			wp_enqueue_media();
 			wp_enqueue_script(
 				'flibup-admin',
 				FLIBUP_URL . 'assets/js/admin.js',
@@ -399,9 +453,11 @@ class Admin {
 					'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
 					'searchNonce'  => wp_create_nonce( 'flibup_search' ),
 					'i18n'         => array(
-						'search'  => __( 'Rechercher…', 'flib-up' ),
-						'noResult' => __( 'Aucun résultat', 'flib-up' ),
-						'remove'  => __( 'Retirer', 'flib-up' ),
+						'search'      => __( 'Rechercher…', 'flib-up' ),
+						'noResult'    => __( 'Aucun résultat', 'flib-up' ),
+						'remove'      => __( 'Retirer', 'flib-up' ),
+						'mediaTitle'  => __( 'Choisir une image pour la pop-up', 'flib-up' ),
+						'mediaButton' => __( 'Utiliser cette image', 'flib-up' ),
 					),
 				)
 			);

@@ -23,11 +23,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Frontend {
 
 	/**
-	 * Pop-ups à afficher sur la requête courante.
+	 * Pop-ups à afficher sur la requête courante, indexées par ID.
 	 *
-	 * @var Popup[]
+	 * @var array<int,Popup>
 	 */
 	private $to_render = array();
+
+	/**
+	 * Contenus déjà rendus (shortcodes exécutés), indexés par ID.
+	 *
+	 * @var array<int,string>
+	 */
+	private $rendered_content = array();
 
 	/**
 	 * Mode prévisualisation (ID de la pop-up) ou 0.
@@ -37,14 +44,33 @@ class Frontend {
 	private $preview_id = 0;
 
 	/**
+	 * Les assets ont-ils déjà été demandés ?
+	 *
+	 * @var bool
+	 */
+	private $assets_enqueued = false;
+
+	/**
 	 * Accroche les hooks.
 	 *
 	 * @return void
 	 */
 	public function register_hooks() {
+		add_action( 'init', array( $this, 'register_shortcodes' ) );
 		add_action( 'wp', array( $this, 'prepare' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ), 5 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ), 20 );
 		add_action( 'wp_footer', array( $this, 'render' ), 99 );
+	}
+
+	/**
+	 * Déclare les shortcodes de déclenchement.
+	 *
+	 * @return void
+	 */
+	public function register_shortcodes() {
+		add_shortcode( 'flibup_button', array( $this, 'shortcode_button' ) );
+		add_shortcode( 'flibup_trigger', array( $this, 'shortcode_button' ) );
 	}
 
 	/**
@@ -70,7 +96,9 @@ class Frontend {
 			return;
 		}
 
-		$matched = array();
+		$auto  = array();
+		$click = array();
+
 		foreach ( $ids as $id ) {
 			$popup = new Popup( $id );
 
@@ -85,27 +113,70 @@ class Frontend {
 				continue;
 			}
 
-			$matched[] = $popup;
-		}
-
-		if ( empty( $matched ) ) {
-			return;
+			if ( $popup->is_click_triggered() ) {
+				$click[] = $popup;
+			} else {
+				$auto[] = $popup;
+			}
 		}
 
 		// Tri par priorité décroissante.
-		usort(
-			$matched,
-			static function ( Popup $a, Popup $b ) {
-				return (int) $b->get( 'priority' ) <=> (int) $a->get( 'priority' );
-			}
-		);
+		$by_priority = static function ( Popup $a, Popup $b ) {
+			return (int) $b->get( 'priority' ) <=> (int) $a->get( 'priority' );
+		};
+		usort( $auto, $by_priority );
+		usort( $click, $by_priority );
 
-		// Si plusieurs pop-ups non autorisées : on ne garde que la première.
-		if ( ! Settings::allow_multiple() ) {
-			$matched = array( $matched[0] );
+		// Si plusieurs pop-ups automatiques et mode multiple désactivé : on ne
+		// garde que la première. Les pop-ups déclenchées au clic ne sont jamais
+		// écartées, puisqu'elles n'apparaissent que sur action du visiteur.
+		if ( ! Settings::allow_multiple() && count( $auto ) > 1 ) {
+			$auto = array( $auto[0] );
 		}
 
-		$this->to_render = $matched;
+		foreach ( array_merge( $auto, $click ) as $popup ) {
+			$this->to_render[ $popup->get_id() ] = $popup;
+		}
+	}
+
+	/**
+	 * Ajoute une pop-up au rendu de la page courante, hors ciblage.
+	 *
+	 * Utilisé par le shortcode : poser un bouton déclencheur sur une page
+	 * implique d'y afficher la pop-up correspondante.
+	 *
+	 * @param int $id ID de la pop-up.
+	 * @return bool Vrai si la pop-up est bien prise en charge.
+	 */
+	public function request_popup( $id ) {
+		$id = absint( $id );
+		if ( ! $id ) {
+			return false;
+		}
+
+		if ( isset( $this->to_render[ $id ] ) ) {
+			$this->enqueue_assets_now();
+			return true;
+		}
+
+		if ( get_post_type( $id ) !== FLIBUP_POST_TYPE ) {
+			return false;
+		}
+
+		$popup = new Popup( $id );
+		if ( ! $popup->is_enabled() || Scheduler::is_expired( $popup ) ) {
+			return false;
+		}
+
+		$this->to_render[ $id ] = $popup;
+		$this->enqueue_assets_now();
+
+		// Rendu immédiat du contenu : un shortcode imbriqué (formulaire, carte,
+		// galerie…) doit encore pouvoir déclarer ses propres styles et scripts,
+		// ce qui ne serait plus possible au moment du rendu en pied de page.
+		$this->get_rendered_content( $popup );
+
+		return true;
 	}
 
 	/**
@@ -132,8 +203,8 @@ class Frontend {
 			return;
 		}
 
-		$this->preview_id = $id;
-		$this->to_render  = array( new Popup( $id ) );
+		$this->preview_id       = $id;
+		$this->to_render[ $id ] = new Popup( $id );
 	}
 
 	/**
@@ -172,23 +243,22 @@ class Frontend {
 	}
 
 	/**
-	 * Charge les assets publics uniquement si au moins une pop-up est à rendre.
+	 * Enregistre les assets publics sans les charger.
+	 *
+	 * Ils peuvent être demandés tardivement par le shortcode, au milieu du
+	 * contenu : l'enregistrement doit donc précéder le rendu de la page.
 	 *
 	 * @return void
 	 */
-	public function enqueue_assets() {
-		if ( empty( $this->to_render ) ) {
-			return;
-		}
-
-		wp_enqueue_style(
+	public function register_assets() {
+		wp_register_style(
 			'flibup-public',
 			FLIBUP_URL . 'assets/css/public.css',
 			array(),
 			FLIBUP_VERSION
 		);
 
-		wp_enqueue_script(
+		wp_register_script(
 			'flibup-public',
 			FLIBUP_URL . 'assets/js/public.js',
 			array(),
@@ -204,6 +274,98 @@ class Frontend {
 				'preview'       => (bool) $this->preview_id,
 				'now'           => time(),
 			)
+		);
+	}
+
+	/**
+	 * Charge les assets publics si au moins une pop-up est à rendre.
+	 *
+	 * @return void
+	 */
+	public function enqueue_assets() {
+		if ( empty( $this->to_render ) ) {
+			return;
+		}
+
+		$this->enqueue_assets_now();
+
+		// Le contenu est rendu dès maintenant (et non au pied de page) afin que
+		// les shortcodes qui déclarent leurs propres styles et scripts aient
+		// encore la possibilité de les faire charger.
+		foreach ( $this->to_render as $popup ) {
+			$this->get_rendered_content( $popup );
+		}
+	}
+
+	/**
+	 * Demande le chargement effectif des assets.
+	 *
+	 * @return void
+	 */
+	private function enqueue_assets_now() {
+		if ( $this->assets_enqueued ) {
+			return;
+		}
+		wp_enqueue_style( 'flibup-public' );
+		wp_enqueue_script( 'flibup-public' );
+		$this->assets_enqueued = true;
+	}
+
+	/**
+	 * Renvoie le contenu rendu d'une pop-up (shortcodes exécutés, mis en cache).
+	 *
+	 * @param Popup $popup Pop-up.
+	 * @return string
+	 */
+	private function get_rendered_content( Popup $popup ) {
+		$id = $popup->get_id();
+
+		if ( ! isset( $this->rendered_content[ $id ] ) ) {
+			$this->rendered_content[ $id ] = flibup_render_content( (string) $popup->get( 'content' ) );
+		}
+
+		return $this->rendered_content[ $id ];
+	}
+
+	/**
+	 * Shortcode `[flibup_button id="12" text="…"]`.
+	 *
+	 * @param array $atts Attributs.
+	 * @return string
+	 */
+	public function shortcode_button( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'id'    => 0,
+				'text'  => __( 'Ouvrir', 'flib-up' ),
+				'class' => '',
+				'style' => 'button',
+				'title' => '',
+			),
+			$atts,
+			'flibup_button'
+		);
+
+		$id = absint( $atts['id'] );
+		if ( ! $this->request_popup( $id ) ) {
+			return '';
+		}
+
+		$classes = array( 'flibup-trigger' );
+		$classes[] = ( 'link' === $atts['style'] ) ? 'flibup-trigger-link' : 'flibup-trigger-button';
+
+		if ( '' !== trim( (string) $atts['class'] ) ) {
+			$classes = array_merge( $classes, preg_split( '/\s+/', sanitize_text_field( $atts['class'] ) ) );
+		}
+
+		$title = sanitize_text_field( (string) $atts['title'] );
+
+		return sprintf(
+			'<button type="button" class="%1$s" data-flibup-open="%2$d"%3$s>%4$s</button>',
+			esc_attr( implode( ' ', array_filter( $classes ) ) ),
+			$id,
+			$title ? ' title="' . esc_attr( $title ) . '"' : '',
+			esc_html( $atts['text'] )
 		);
 	}
 
@@ -231,32 +393,47 @@ class Frontend {
 	 * @return void
 	 */
 	private function render_popup( Popup $popup ) {
-		$id            = $popup->get_id();
-		$config        = $popup->to_frontend_config();
-		$config['preview'] = (bool) $this->preview_id;
+		$id                = $popup->get_id();
+		$config            = $popup->to_frontend_config();
+		$config['preview'] = ( $this->preview_id === $id );
 
 		$visible_title = (string) $popup->get( 'visible_title' );
-		$content       = (string) $popup->get( 'content' );
+		$content       = $this->get_rendered_content( $popup );
 		$button_text   = (string) $popup->get( 'button_text' );
 		$button_url    = (string) $popup->get( 'button_url' );
 		$button_target = ( '_blank' === $popup->get( 'button_target' ) ) ? '_blank' : '_self';
 
-		$css_vars    = $popup->css_vars();
-		$style       = '';
+		$image     = $popup->get_image();
+		$image_pos = (string) $popup->get( 'image_position' );
+
+		$css_vars = $popup->css_vars();
+		$style    = '';
 		foreach ( $css_vars as $prop => $val ) {
 			$style .= $prop . ':' . $val . ';';
 		}
 
-		$dialog_id  = 'flibup-dialog-' . $id;
-		$title_id   = 'flibup-title-' . $id;
-		$has_title  = ( '' !== trim( $visible_title ) );
-		$position   = (string) $popup->get( 'close_position' );
+		$dialog_id = 'flibup-dialog-' . $id;
+		$title_id  = 'flibup-title-' . $id;
+		$has_title = ( '' !== trim( $visible_title ) );
+		$is_modal  = ( (int) $popup->get( 'overlay_passthrough' ) !== 1 );
 
-		$overlay_classes = array( 'flibup-overlay' );
-		if ( (int) $popup->get( 'overlay_blur' ) === 1 ) {
+		$overlay_classes = array(
+			'flibup-overlay',
+			'flibup-pos-' . (string) $popup->get( 'position' ),
+		);
+		if ( (int) $popup->get( 'overlay_blur' ) === 1 && $is_modal ) {
 			$overlay_classes[] = 'flibup-has-blur';
 		}
-		$dialog_classes = array( 'flibup-dialog', 'flibup-close-' . $position );
+		if ( ! $is_modal ) {
+			$overlay_classes[] = 'flibup-passthrough';
+		}
+
+		$dialog_classes = array(
+			'flibup-dialog',
+			'flibup-close-' . (string) $popup->get( 'close_position' ),
+			'flibup-img-' . ( $image ? $image_pos : 'none' ),
+			'flibup-img-align-' . (string) $popup->get( 'image_align' ),
+		);
 
 		$json = wp_json_encode( $config );
 		?>
@@ -268,7 +445,7 @@ class Frontend {
 			<div class="<?php echo esc_attr( implode( ' ', $dialog_classes ) ); ?>"
 				id="<?php echo esc_attr( $dialog_id ); ?>"
 				role="dialog"
-				aria-modal="true"
+				aria-modal="<?php echo $is_modal ? 'true' : 'false'; ?>"
 				<?php if ( $has_title ) : ?>
 					aria-labelledby="<?php echo esc_attr( $title_id ); ?>"
 				<?php else : ?>
@@ -280,13 +457,24 @@ class Frontend {
 					<?php echo $this->close_svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG statique interne. ?>
 				</button>
 
+				<?php
+				$this->render_image( $popup, $image, 'top', $image_pos );
+				$this->render_image( $popup, $image, 'above_title', $image_pos );
+				?>
+
 				<?php if ( $has_title ) : ?>
 					<h2 class="flibup-title" id="<?php echo esc_attr( $title_id ); ?>"><?php echo esc_html( $visible_title ); ?></h2>
 				<?php endif; ?>
 
-				<div class="flibup-content">
-					<?php echo wp_kses_post( $content ); ?>
-				</div>
+				<?php $this->render_image( $popup, $image, 'below_title', $image_pos ); ?>
+
+				<?php if ( '' !== trim( $content ) ) : ?>
+					<div class="flibup-content">
+						<?php echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Contenu filtré à l'enregistrement puis rendu par flibup_render_content(). ?>
+					</div>
+				<?php endif; ?>
+
+				<?php $this->render_image( $popup, $image, 'below_content', $image_pos ); ?>
 
 				<?php if ( '' !== trim( $button_text ) && '' !== trim( $button_url ) ) : ?>
 					<div class="flibup-actions">
@@ -300,6 +488,46 @@ class Frontend {
 					</div>
 				<?php endif; ?>
 			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Affiche l'image du corps si son emplacement correspond.
+	 *
+	 * @param Popup      $popup  Pop-up.
+	 * @param array|null $image  Données de l'image.
+	 * @param string     $slot   Emplacement en cours de rendu.
+	 * @param string     $wanted Emplacement configuré.
+	 * @return void
+	 */
+	private function render_image( Popup $popup, $image, $slot, $wanted ) {
+		if ( null === $image || $slot !== $wanted ) {
+			return;
+		}
+
+		$link      = (string) $popup->get( 'image_link' );
+		$has_link  = ( '' !== trim( $link ) );
+		$classes   = array( 'flibup-media', 'flibup-media-' . $slot );
+		?>
+		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>">
+			<?php if ( $has_link ) : ?>
+				<a href="<?php echo esc_url( $link ); ?>">
+			<?php endif; ?>
+			<img
+				src="<?php echo esc_url( $image['src'] ); ?>"
+				alt="<?php echo esc_attr( $image['alt'] ); ?>"
+				<?php if ( $image['width'] && $image['height'] ) : ?>
+					width="<?php echo esc_attr( $image['width'] ); ?>" height="<?php echo esc_attr( $image['height'] ); ?>"
+				<?php endif; ?>
+				<?php if ( '' !== $image['srcset'] ) : ?>
+					srcset="<?php echo esc_attr( $image['srcset'] ); ?>" sizes="<?php echo esc_attr( $image['sizes'] ); ?>"
+				<?php endif; ?>
+				loading="lazy"
+				decoding="async" />
+			<?php if ( $has_link ) : ?>
+				</a>
+			<?php endif; ?>
 		</div>
 		<?php
 	}

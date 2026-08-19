@@ -26,6 +26,101 @@ function flibup_clear_active_cache() {
 }
 
 /**
+ * Positions d'affichage disponibles pour une pop-up.
+ *
+ * @return array<string,string> Clé => libellé traduit.
+ */
+function flibup_positions() {
+	return array(
+		'top-left'      => __( 'Haut gauche', 'flib-up' ),
+		'top-center'    => __( 'Haut centré', 'flib-up' ),
+		'top-right'     => __( 'Haut droite', 'flib-up' ),
+		'middle-left'   => __( 'Milieu gauche', 'flib-up' ),
+		'center'        => __( 'Centre de l\'écran', 'flib-up' ),
+		'middle-right'  => __( 'Milieu droite', 'flib-up' ),
+		'bottom-left'   => __( 'Bas gauche', 'flib-up' ),
+		'bottom-center' => __( 'Bas centré', 'flib-up' ),
+		'bottom-right'  => __( 'Bas droite', 'flib-up' ),
+	);
+}
+
+/**
+ * Emplacements possibles de l'image dans le corps de la pop-up.
+ *
+ * @return array<string,string>
+ */
+function flibup_image_positions() {
+	return array(
+		'top'           => __( 'En-tête pleine largeur (au-dessus du titre, sans marge)', 'flib-up' ),
+		'above_title'   => __( 'Au-dessus du titre', 'flib-up' ),
+		'below_title'   => __( 'Entre le titre et le texte', 'flib-up' ),
+		'below_content' => __( 'Sous le texte', 'flib-up' ),
+	);
+}
+
+/**
+ * Sanitise le contenu riche d'une pop-up.
+ *
+ * Les utilisateurs habilités (`unfiltered_html`) conservent leur balisage
+ * intégral ; les autres passent par `wp_kses_post`. Dans les deux cas les
+ * shortcodes (`[...]`) sont préservés puisqu'il ne s'agit pas de HTML.
+ *
+ * @param mixed $value Contenu brut.
+ * @return string
+ */
+function flibup_sanitize_content( $value ) {
+	$value = is_scalar( $value ) ? (string) $value : '';
+
+	if ( current_user_can( 'unfiltered_html' ) ) {
+		return $value;
+	}
+
+	return wp_kses_post( $value );
+}
+
+/**
+ * Prépare le contenu d'une pop-up pour l'affichage public.
+ *
+ * Reproduit la chaîne de filtres de `the_content` (paragraphes, typographie,
+ * emojis, intégrations et shortcodes) sans appliquer `the_content` lui-même,
+ * ce qui éviterait des effets de bord avec les extensions tierces.
+ *
+ * @param string $content Contenu enregistré.
+ * @return string HTML prêt à afficher.
+ */
+function flibup_render_content( $content ) {
+	$content = (string) $content;
+
+	if ( '' === trim( $content ) ) {
+		return '';
+	}
+
+	/**
+	 * Permet de court-circuiter ou de remplacer le rendu du contenu.
+	 *
+	 * @param string|null $pre     Contenu de remplacement (null pour continuer).
+	 * @param string      $content Contenu brut enregistré.
+	 */
+	$pre = apply_filters( 'flibup_pre_render_content', null, $content );
+	if ( null !== $pre ) {
+		return (string) $pre;
+	}
+
+	$content = wptexturize( $content );
+	$content = convert_smilies( $content );
+	$content = wpautop( $content );
+	$content = shortcode_unautop( $content );
+	$content = do_shortcode( $content );
+
+	/**
+	 * Filtre le HTML final du corps de la pop-up.
+	 *
+	 * @param string $content HTML rendu.
+	 */
+	return (string) apply_filters( 'flibup_render_content', $content );
+}
+
+/**
  * Valide une longueur CSS (nombre + unité autorisée) sans faire confiance
  * à une saisie brute. Renvoie une chaîne sûre ou la valeur par défaut.
  *

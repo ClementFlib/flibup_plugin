@@ -178,7 +178,13 @@ class Post_Type {
 
 			case 'flibup_trigger':
 				$mode = $popup->get( 'trigger_mode' );
-				if ( 'delay' === $mode ) {
+				if ( 'click' === $mode ) {
+					$selector = trim( (string) $popup->get( 'trigger_selector' ) );
+					echo esc_html__( 'Au clic', 'flib-up' );
+					if ( '' !== $selector ) {
+						echo ' <code>' . esc_html( $selector ) . '</code>';
+					}
+				} elseif ( 'delay' === $mode ) {
 					$delay = (int) $popup->get( 'trigger_delay' );
 					$unit  = $popup->get( 'trigger_delay_unit' );
 					echo esc_html(

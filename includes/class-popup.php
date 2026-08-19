@@ -76,8 +76,23 @@ class Popup {
 			'button_url'         => array( 'default' => '' ),
 			'button_target'      => array( 'default' => '_self' ),
 
+			// --- Image ---
+			'image_id'           => array( 'default' => 0 ),
+			'image_url'          => array( 'default' => '' ),
+			'image_alt'          => array( 'default' => '' ),
+			'image_position'     => array( 'default' => 'above_title' ),
+			'image_width'        => array( 'default' => '100%' ),
+			'image_align'        => array( 'default' => 'center' ),
+			'image_radius'       => array( 'default' => '0px' ),
+			'image_link'         => array( 'default' => '' ),
+
 			// --- Activation ---
 			'enabled'            => array( 'default' => 0 ),
+
+			// --- Position à l'écran ---
+			'position'           => array( 'default' => 'center' ),
+			'offset_x'           => array( 'default' => 20 ),
+			'offset_y'           => array( 'default' => 20 ),
 
 			// --- Dimensions / mise en page ---
 			'width'              => array( 'default' => '600px' ),
@@ -116,6 +131,8 @@ class Popup {
 			'trigger_mode'       => array( 'default' => 'immediate' ),
 			'trigger_delay'      => array( 'default' => 0 ),
 			'trigger_delay_unit' => array( 'default' => 's' ),
+			'trigger_selector'   => array( 'default' => '' ),
+			'trigger_ignore_freq' => array( 'default' => 1 ),
 
 			// --- Programmation ---
 			'start_datetime'     => array( 'default' => '' ),
@@ -127,6 +144,7 @@ class Popup {
 			'overlay_transparent' => array( 'default' => 0 ),
 			'overlay_blur'        => array( 'default' => 0 ),
 			'overlay_blur_px'     => array( 'default' => 4 ),
+			'overlay_passthrough' => array( 'default' => 0 ),
 			'anim_speed'          => array( 'default' => 250 ),
 			'anim_disabled'       => array( 'default' => 0 ),
 			'block_scroll'        => array( 'default' => 1 ),
@@ -247,11 +265,14 @@ class Popup {
 			'campaign'       => (string) $this->get( 'campaign_version' ),
 			'triggerMode'    => $this->get( 'trigger_mode' ),
 			'triggerDelayMs' => Scheduler::delay_in_ms( $this->get( 'trigger_delay' ), $this->get( 'trigger_delay_unit' ) ),
+			'triggerSelector' => (string) $this->get( 'trigger_selector' ),
+			'ignoreFrequency' => (int) $this->get( 'trigger_ignore_freq' ) === 1,
 			'startTs'        => $start_ts,
 			'endTs'          => $end_ts,
-			'closeOnOverlay' => (int) $this->get( 'close_on_overlay' ) === 1,
+			'modal'          => (int) $this->get( 'overlay_passthrough' ) !== 1,
+			'closeOnOverlay' => (int) $this->get( 'close_on_overlay' ) === 1 && (int) $this->get( 'overlay_passthrough' ) !== 1,
 			'closeOnEsc'     => (int) $this->get( 'close_on_esc' ) === 1,
-			'blockScroll'    => (int) $this->get( 'block_scroll' ) === 1,
+			'blockScroll'    => (int) $this->get( 'block_scroll' ) === 1 && (int) $this->get( 'overlay_passthrough' ) !== 1,
 			'animDisabled'   => (int) $this->get( 'anim_disabled' ) === 1,
 			'animSpeed'      => (int) $this->get( 'anim_speed' ),
 		);
@@ -264,6 +285,10 @@ class Popup {
 	 */
 	public function css_vars() {
 		$vars = array(
+			'--flibup-offset-x'           => ( (int) $this->get( 'offset_x' ) ) . 'px',
+			'--flibup-offset-y'           => ( (int) $this->get( 'offset_y' ) ) . 'px',
+			'--flibup-image-width'        => (string) $this->get( 'image_width' ),
+			'--flibup-image-radius'       => (string) $this->get( 'image_radius' ),
 			'--flibup-width'              => (string) $this->get( 'width' ),
 			'--flibup-max-width'          => (string) $this->get( 'max_width' ),
 			'--flibup-min-height'         => (string) $this->get( 'min_height' ),
@@ -297,6 +322,56 @@ class Popup {
 		);
 
 		return $vars;
+	}
+
+	/**
+	 * Renvoie les données de l'image du corps, ou null si aucune.
+	 *
+	 * @return array{src:string,srcset:string,sizes:string,alt:string,width:int,height:int}|null
+	 */
+	public function get_image() {
+		$attachment_id = (int) $this->get( 'image_id' );
+		$fallback_url  = (string) $this->get( 'image_url' );
+		$alt           = (string) $this->get( 'image_alt' );
+
+		if ( $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ) {
+			$src = wp_get_attachment_image_src( $attachment_id, 'large' );
+			if ( is_array( $src ) ) {
+				if ( '' === trim( $alt ) ) {
+					$alt = (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true );
+				}
+				return array(
+					'src'    => $src[0],
+					'width'  => (int) $src[1],
+					'height' => (int) $src[2],
+					'srcset' => (string) wp_get_attachment_image_srcset( $attachment_id, 'large' ),
+					'sizes'  => (string) wp_get_attachment_image_sizes( $attachment_id, 'large' ),
+					'alt'    => $alt,
+				);
+			}
+		}
+
+		if ( '' !== trim( $fallback_url ) ) {
+			return array(
+				'src'    => $fallback_url,
+				'width'  => 0,
+				'height' => 0,
+				'srcset' => '',
+				'sizes'  => '',
+				'alt'    => $alt,
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Le déclenchement se fait-il au clic sur un élément ?
+	 *
+	 * @return bool
+	 */
+	public function is_click_triggered() {
+		return 'click' === $this->get( 'trigger_mode' );
 	}
 
 	/**

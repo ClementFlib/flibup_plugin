@@ -11,6 +11,8 @@
 		initColorPickers();
 		initConditionalFields();
 		initIdSelectors();
+		initPositionGrid();
+		initImagePicker();
 	} );
 
 	/* --- Onglets --- */
@@ -65,6 +67,98 @@
 			toggleFreq();
 			$freq.on( 'change', toggleFreq );
 		}
+
+		var $trigger = $( '.flibup-trigger-mode' );
+
+		function toggleTrigger() {
+			var val = $trigger.filter( ':checked' ).val();
+			$( '.flibup-trigger-click' ).toggleClass( 'flibup-hidden', val !== 'click' );
+			$( '.flibup-trigger-delay' ).toggleClass( 'flibup-hidden', val !== 'delay' );
+		}
+		if ( $trigger.length ) {
+			toggleTrigger();
+			$trigger.on( 'change', toggleTrigger );
+		}
+	}
+
+	/* --- Grille de position --- */
+	function initPositionGrid() {
+		var $grid = $( '.flibup-position-grid' );
+		if ( ! $grid.length ) {
+			return;
+		}
+
+		$grid.on( 'change', 'input[type="radio"]', function () {
+			var $cell = $( this ).closest( '.flibup-position-cell' );
+			$grid.find( '.flibup-position-cell' ).removeClass( 'is-selected' );
+			$cell.addClass( 'is-selected' );
+			$( '.flibup-position-label' ).text( $cell.attr( 'title' ) || '' );
+		} );
+	}
+
+	/* --- Sélecteur d'image (médiathèque) --- */
+	function initImagePicker() {
+		var $picker = $( '.flibup-image-picker' );
+		if ( ! $picker.length ) {
+			return;
+		}
+
+		var $id = $picker.find( '.flibup-image-id' );
+		var $preview = $picker.find( '.flibup-image-preview' );
+		var $remove = $picker.find( '.flibup-image-remove' );
+		var $url = $picker.find( '.flibup-image-url' );
+		var frame = null;
+
+		function refreshVisibility() {
+			var has = ( parseInt( $id.val(), 10 ) > 0 ) || $.trim( $url.val() ) !== '';
+			$remove.prop( 'hidden', ! has );
+			$( '.flibup-image-options' ).toggleClass( 'flibup-hidden', ! has );
+		}
+
+		$picker.find( '.flibup-image-select' ).on( 'click', function ( e ) {
+			e.preventDefault();
+
+			if ( ! window.wp || ! window.wp.media ) {
+				return;
+			}
+
+			if ( ! frame ) {
+				frame = window.wp.media( {
+					title: cfg.i18n ? cfg.i18n.mediaTitle : 'Select image',
+					button: { text: cfg.i18n ? cfg.i18n.mediaButton : 'Use this image' },
+					library: { type: 'image' },
+					multiple: false
+				} );
+
+				frame.on( 'select', function () {
+					var attachment = frame.state().get( 'selection' ).first().toJSON();
+					var thumb = attachment.url;
+
+					if ( attachment.sizes && attachment.sizes.medium ) {
+						thumb = attachment.sizes.medium.url;
+					}
+
+					$id.val( attachment.id );
+					$preview.find( 'img' ).attr( 'src', thumb );
+					$preview.prop( 'hidden', false );
+					refreshVisibility();
+				} );
+			}
+
+			frame.open();
+		} );
+
+		$remove.on( 'click', function ( e ) {
+			e.preventDefault();
+			$id.val( 0 );
+			$url.val( '' );
+			$preview.prop( 'hidden', true ).find( 'img' ).attr( 'src', '' );
+			refreshVisibility();
+		} );
+
+		$url.on( 'input', refreshVisibility );
+
+		refreshVisibility();
 	}
 
 	/* --- Sélecteurs d'ID avec recherche AJAX --- */

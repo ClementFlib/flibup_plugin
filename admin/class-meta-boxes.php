@@ -69,7 +69,7 @@ class Meta_Boxes {
 			$this->tab_content( $v, $post->ID );
 			$this->tab_display( $v );
 			$this->tab_targeting( $v );
-			$this->tab_trigger( $v );
+			$this->tab_trigger( $v, $post->ID );
 			$this->tab_schedule( $v );
 			$this->tab_overlay( $v );
 			$this->tab_close( $v );
@@ -160,13 +160,66 @@ class Meta_Boxes {
 							'flibupcontent',
 							array(
 								'textarea_name' => 'flibup_content',
-								'textarea_rows' => 8,
-								'media_buttons' => false,
-								'teeny'         => true,
+								'textarea_rows' => 10,
+								'media_buttons' => true,
+								'teeny'         => false,
+								'quicktags'     => true,
 							)
 						);
 						?>
+						<p class="description">
+							<?php esc_html_e( 'Les shortcodes sont interprétés dans ce champ (formulaires, galeries, blocs d\'extensions tierces, etc.). Saisissez-les dans l\'onglet « Texte » de l\'éditeur pour éviter toute reformulation automatique.', 'flib-up' ); ?>
+						</p>
 					</td>
+				</tr>
+				<tr>
+					<th><?php esc_html_e( 'Image', 'flib-up' ); ?></th>
+					<td>
+						<?php $this->image_field( $v ); ?>
+					</td>
+				</tr>
+				<tr class="flibup-image-options">
+					<th><?php esc_html_e( 'Emplacement de l\'image', 'flib-up' ); ?></th>
+					<td>
+						<select name="flibup_image_position">
+							<?php foreach ( flibup_image_positions() as $key => $label ) : ?>
+								<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $key, $v['image_position'] ); ?>><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</td>
+				</tr>
+				<tr class="flibup-image-options">
+					<th><label for="flibup_image_width"><?php esc_html_e( 'Largeur de l\'image', 'flib-up' ); ?></label></th>
+					<td>
+						<input type="text" id="flibup_image_width" name="flibup_image_width" value="<?php echo esc_attr( $v['image_width'] ); ?>" placeholder="100%" />
+						<span class="description"><?php esc_html_e( 'auto, 100% ou une longueur (ex. 240px).', 'flib-up' ); ?></span>
+					</td>
+				</tr>
+				<tr class="flibup-image-options">
+					<th><?php esc_html_e( 'Alignement de l\'image', 'flib-up' ); ?></th>
+					<td>
+						<select name="flibup_image_align">
+							<option value="left" <?php selected( 'left', $v['image_align'] ); ?>><?php esc_html_e( 'Gauche', 'flib-up' ); ?></option>
+							<option value="center" <?php selected( 'center', $v['image_align'] ); ?>><?php esc_html_e( 'Centré', 'flib-up' ); ?></option>
+							<option value="right" <?php selected( 'right', $v['image_align'] ); ?>><?php esc_html_e( 'Droite', 'flib-up' ); ?></option>
+						</select>
+						<span class="description"><?php esc_html_e( 'Sans effet sur l\'en-tête pleine largeur.', 'flib-up' ); ?></span>
+					</td>
+				</tr>
+				<tr class="flibup-image-options">
+					<th><label for="flibup_image_radius"><?php esc_html_e( 'Rayon des angles de l\'image', 'flib-up' ); ?></label></th>
+					<td><input type="text" id="flibup_image_radius" name="flibup_image_radius" value="<?php echo esc_attr( $v['image_radius'] ); ?>" placeholder="0px" /></td>
+				</tr>
+				<tr class="flibup-image-options">
+					<th><label for="flibup_image_alt"><?php esc_html_e( 'Texte alternatif', 'flib-up' ); ?></label></th>
+					<td>
+						<input type="text" id="flibup_image_alt" class="large-text" name="flibup_image_alt" value="<?php echo esc_attr( $v['image_alt'] ); ?>" />
+						<p class="description"><?php esc_html_e( 'Laisser vide pour reprendre le texte alternatif défini dans la médiathèque. Une image purement décorative peut rester sans description.', 'flib-up' ); ?></p>
+					</td>
+				</tr>
+				<tr class="flibup-image-options">
+					<th><label for="flibup_image_link"><?php esc_html_e( 'Lien sur l\'image', 'flib-up' ); ?></label></th>
+					<td><input type="url" id="flibup_image_link" class="regular-text" name="flibup_image_link" value="<?php echo esc_attr( $v['image_link'] ); ?>" placeholder="https://" /></td>
 				</tr>
 				<tr>
 					<th><label for="flibup_button_text"><?php esc_html_e( 'Texte du bouton', 'flib-up' ); ?></label></th>
@@ -195,6 +248,39 @@ class Meta_Boxes {
 	}
 
 	/**
+	 * Sélecteur d'image (médiathèque + URL de repli).
+	 *
+	 * @param array $v Valeurs.
+	 * @return void
+	 */
+	private function image_field( $v ) {
+		$image_id  = (int) $v['image_id'];
+		$thumb     = $image_id ? wp_get_attachment_image_url( $image_id, 'medium' ) : '';
+		$has_image = ( $thumb || '' !== trim( (string) $v['image_url'] ) );
+		$preview   = $thumb ? $thumb : (string) $v['image_url'];
+		?>
+		<div class="flibup-image-picker">
+			<input type="hidden" name="flibup_image_id" class="flibup-image-id" value="<?php echo esc_attr( $image_id ); ?>" />
+
+			<div class="flibup-image-preview" <?php echo $has_image ? '' : 'hidden'; ?>>
+				<img src="<?php echo esc_url( $preview ); ?>" alt="" />
+			</div>
+
+			<p class="flibup-image-buttons">
+				<button type="button" class="button flibup-image-select"><?php esc_html_e( 'Choisir une image', 'flib-up' ); ?></button>
+				<button type="button" class="button-link flibup-image-remove" <?php echo $has_image ? '' : 'hidden'; ?>><?php esc_html_e( 'Retirer l\'image', 'flib-up' ); ?></button>
+			</p>
+
+			<p>
+				<label for="flibup_image_url"><?php esc_html_e( 'ou URL externe :', 'flib-up' ); ?></label>
+				<input type="url" id="flibup_image_url" class="regular-text flibup-image-url" name="flibup_image_url" value="<?php echo esc_attr( $v['image_url'] ); ?>" placeholder="https://" />
+			</p>
+			<p class="description"><?php esc_html_e( 'La médiathèque est prioritaire sur l\'URL externe. Vous pouvez aussi insérer des images directement dans l\'éditeur de contenu ci-dessus.', 'flib-up' ); ?></p>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Onglet Affichage (dimensions et style).
 	 *
 	 * @param array $v Valeurs.
@@ -203,6 +289,42 @@ class Meta_Boxes {
 	private function tab_display( $v ) {
 		?>
 		<div id="flibup-tab-display" class="flibup-tab">
+			<h4><?php esc_html_e( 'Position à l\'écran', 'flib-up' ); ?></h4>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th><?php esc_html_e( 'Emplacement', 'flib-up' ); ?></th>
+					<td>
+						<div class="flibup-position-grid" role="radiogroup" aria-label="<?php esc_attr_e( 'Position de la pop-up à l\'écran', 'flib-up' ); ?>">
+							<?php foreach ( flibup_positions() as $key => $label ) : ?>
+								<label class="flibup-position-cell<?php echo ( $key === $v['position'] ) ? ' is-selected' : ''; ?>" title="<?php echo esc_attr( $label ); ?>">
+									<input type="radio" name="flibup_position" value="<?php echo esc_attr( $key ); ?>" <?php checked( $key, $v['position'] ); ?> />
+									<span class="flibup-position-dot" aria-hidden="true"></span>
+									<span class="screen-reader-text"><?php echo esc_html( $label ); ?></span>
+								</label>
+							<?php endforeach; ?>
+						</div>
+						<p class="description flibup-position-label">
+							<?php
+							$positions = flibup_positions();
+							echo esc_html( isset( $positions[ $v['position'] ] ) ? $positions[ $v['position'] ] : $positions['center'] );
+							?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th><?php esc_html_e( 'Marges par rapport aux bords (px)', 'flib-up' ); ?></th>
+					<td>
+						<?php esc_html_e( 'Horizontale', 'flib-up' ); ?>
+						<input type="number" class="small-text" min="0" max="400" name="flibup_offset_x" value="<?php echo esc_attr( $v['offset_x'] ); ?>" />
+						&nbsp;
+						<?php esc_html_e( 'Verticale', 'flib-up' ); ?>
+						<input type="number" class="small-text" min="0" max="400" name="flibup_offset_y" value="<?php echo esc_attr( $v['offset_y'] ); ?>" />
+						<p class="description"><?php esc_html_e( 'Distance entre la pop-up et le bord de la fenêtre. Sans effet en position centrée.', 'flib-up' ); ?></p>
+					</td>
+				</tr>
+			</table>
+
+			<h4><?php esc_html_e( 'Dimensions et style', 'flib-up' ); ?></h4>
 			<table class="form-table" role="presentation">
 				<tr>
 					<th><?php esc_html_e( 'Largeur', 'flib-up' ); ?></th>
@@ -366,21 +488,43 @@ class Meta_Boxes {
 	/**
 	 * Onglet Déclenchement et fréquence.
 	 *
-	 * @param array $v Valeurs.
+	 * @param array $v       Valeurs.
+	 * @param int   $post_id ID du post.
 	 * @return void
 	 */
-	private function tab_trigger( $v ) {
+	private function tab_trigger( $v, $post_id ) {
 		?>
 		<div id="flibup-tab-trigger" class="flibup-tab">
 			<table class="form-table" role="presentation">
 				<tr>
 					<th><?php esc_html_e( 'Déclenchement', 'flib-up' ); ?></th>
 					<td>
-						<label><input type="radio" name="flibup_trigger_mode" value="immediate" <?php checked( 'immediate', $v['trigger_mode'] ); ?> /> <?php esc_html_e( 'Immédiat au chargement', 'flib-up' ); ?></label><br />
-						<label><input type="radio" name="flibup_trigger_mode" value="delay" <?php checked( 'delay', $v['trigger_mode'] ); ?> /> <?php esc_html_e( 'Après un délai', 'flib-up' ); ?></label>
+						<label><input type="radio" class="flibup-trigger-mode" name="flibup_trigger_mode" value="immediate" <?php checked( 'immediate', $v['trigger_mode'] ); ?> /> <?php esc_html_e( 'Immédiat au chargement', 'flib-up' ); ?></label><br />
+						<label><input type="radio" class="flibup-trigger-mode" name="flibup_trigger_mode" value="delay" <?php checked( 'delay', $v['trigger_mode'] ); ?> /> <?php esc_html_e( 'Après un délai', 'flib-up' ); ?></label><br />
+						<label><input type="radio" class="flibup-trigger-mode" name="flibup_trigger_mode" value="click" <?php checked( 'click', $v['trigger_mode'] ); ?> /> <?php esc_html_e( 'Au clic sur un élément de la page', 'flib-up' ); ?></label>
 					</td>
 				</tr>
-				<tr>
+				<tr class="flibup-trigger-click">
+					<th><label for="flibup_trigger_selector"><?php esc_html_e( 'Élément déclencheur', 'flib-up' ); ?></label></th>
+					<td>
+						<input type="text" id="flibup_trigger_selector" class="large-text code" name="flibup_trigger_selector" value="<?php echo esc_attr( $v['trigger_selector'] ); ?>" placeholder=".mon-bouton, #cta-devis" />
+						<p class="description">
+							<?php esc_html_e( 'Sélecteur CSS du ou des éléments qui ouvrent la pop-up (classes, identifiants, séparés par des virgules). Laissez vide si vous utilisez uniquement le shortcode ou l\'attribut ci-dessous.', 'flib-up' ); ?>
+						</p>
+						<?php $this->trigger_help( $post_id ); ?>
+					</td>
+				</tr>
+				<tr class="flibup-trigger-click">
+					<th><?php esc_html_e( 'Fréquence et clic', 'flib-up' ); ?></th>
+					<td>
+						<label>
+							<input type="checkbox" name="flibup_trigger_ignore_freq" value="1" <?php checked( 1, (int) $v['trigger_ignore_freq'] ); ?> />
+							<?php esc_html_e( 'Ouvrir à chaque clic, même si le visiteur a déjà vu la pop-up', 'flib-up' ); ?>
+						</label>
+						<p class="description"><?php esc_html_e( 'Recommandé : une action volontaire du visiteur doit toujours aboutir. Décochez pour appliquer malgré tout le plafond de fréquence.', 'flib-up' ); ?></p>
+					</td>
+				</tr>
+				<tr class="flibup-trigger-delay">
 					<th><label for="flibup_trigger_delay"><?php esc_html_e( 'Délai', 'flib-up' ); ?></label></th>
 					<td>
 						<input type="number" id="flibup_trigger_delay" class="small-text" min="0" name="flibup_trigger_delay" value="<?php echo esc_attr( $v['trigger_delay'] ); ?>" />
@@ -423,6 +567,50 @@ class Meta_Boxes {
 					</td>
 				</tr>
 			</table>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Aide au branchement d'un déclencheur (shortcode, attribut HTML, API JS).
+	 *
+	 * @param int $post_id ID de la pop-up.
+	 * @return void
+	 */
+	private function trigger_help( $post_id ) {
+		$id = (int) $post_id;
+		?>
+		<div class="flibup-help">
+			<p><strong><?php esc_html_e( 'Trois façons d\'ouvrir cette pop-up au clic :', 'flib-up' ); ?></strong></p>
+			<ol>
+				<li>
+					<?php esc_html_e( 'Insérer un bouton prêt à l\'emploi dans une page, un article ou un widget :', 'flib-up' ); ?>
+					<code class="flibup-copy">[flibup_button id="<?php echo esc_html( $id ); ?>" text="<?php esc_attr_e( 'En savoir plus', 'flib-up' ); ?>"]</code>
+					<span class="description"><?php esc_html_e( 'Attributs facultatifs : class, style (button ou link), target.', 'flib-up' ); ?></span>
+				</li>
+				<li>
+					<?php esc_html_e( 'Ajouter cet attribut à n\'importe quel bouton ou lien existant (constructeur de page, menu, bloc HTML) :', 'flib-up' ); ?>
+					<code class="flibup-copy">data-flibup-open="<?php echo esc_html( $id ); ?>"</code>
+					<span class="description">
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: %s: ancre à utiliser, par exemple #flibup-12 */
+								__( 'Un lien dont l\'URL se termine par %s fonctionne également.', 'flib-up' ),
+								'#flibup-' . $id
+							)
+						);
+						?>
+					</span>
+				</li>
+				<li>
+					<?php esc_html_e( 'Depuis votre propre code JavaScript :', 'flib-up' ); ?>
+					<code class="flibup-copy">FlibUp.open(<?php echo esc_html( $id ); ?>)</code>
+				</li>
+			</ol>
+			<p class="description">
+				<?php esc_html_e( 'Le shortcode force l\'affichage de la pop-up sur la page où il est posé, même si le ciblage ne l\'y prévoyait pas. Pour les deux autres méthodes, vérifiez que le ciblage inclut bien la page concernée.', 'flib-up' ); ?>
+			</p>
 		</div>
 		<?php
 	}
@@ -498,6 +686,13 @@ class Meta_Boxes {
 				<tr>
 					<th><?php esc_html_e( 'Blocage du défilement', 'flib-up' ); ?></th>
 					<td><label><input type="checkbox" name="flibup_block_scroll" value="1" <?php checked( 1, (int) $v['block_scroll'] ); ?> /> <?php esc_html_e( 'Bloquer le défilement de la page lorsque la pop-up est ouverte.', 'flib-up' ); ?></label></td>
+				</tr>
+				<tr>
+					<th><?php esc_html_e( 'Masque non bloquant', 'flib-up' ); ?></th>
+					<td>
+						<label><input type="checkbox" name="flibup_overlay_passthrough" value="1" <?php checked( 1, (int) $v['overlay_passthrough'] ); ?> /> <?php esc_html_e( 'Laisser le site utilisable pendant l\'affichage (le masque ne capte plus les clics).', 'flib-up' ); ?></label>
+						<p class="description"><?php esc_html_e( 'Utile pour une pop-up placée dans un coin, façon bandeau ou notification. La fenêtre n\'est alors plus modale : le défilement reste possible, le blocage du défilement et la fermeture au clic sur le masque sont ignorés.', 'flib-up' ); ?></p>
+					</td>
 				</tr>
 			</table>
 		</div>

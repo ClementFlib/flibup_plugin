@@ -9,9 +9,7 @@
 	inset: 0;
 	z-index: -1;
 	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 20px;
+	padding: var(--flibup-offset-y, 20px) var(--flibup-offset-x, 20px);
 	box-sizing: border-box;
 	overflow-y: auto;
 	background-color: var(--flibup-overlay-color, #000);
@@ -61,12 +59,106 @@
 	border-radius: var(--flibup-radius, 8px);
 	text-align: var(--flibup-text-align, left);
 	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
-	transform: translateY(8px) scale(0.98);
+	transform: var(--flibup-anim-from, translateY(8px) scale(0.98));
 	transition: transform var(--flibup-anim-speed, 250ms) ease;
 }
 
 .flibup-overlay.flibup-is-open .flibup-dialog {
-	transform: translateY(0) scale(1);
+	transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   Position de la pop-up à l'écran.
+
+   Le positionnement passe par les marges automatiques plutôt que par
+   align-items / justify-content : cela conserve un défilement correct
+   lorsque la pop-up dépasse la hauteur de la fenêtre.
+   -------------------------------------------------------------------------- */
+
+.flibup-pos-center .flibup-dialog {
+	margin: auto;
+}
+
+.flibup-pos-top-left .flibup-dialog {
+	margin: 0 auto auto 0;
+}
+
+.flibup-pos-top-center .flibup-dialog {
+	margin: 0 auto auto;
+}
+
+.flibup-pos-top-right .flibup-dialog {
+	margin: 0 0 auto auto;
+}
+
+.flibup-pos-middle-left .flibup-dialog {
+	margin: auto auto auto 0;
+}
+
+.flibup-pos-middle-right .flibup-dialog {
+	margin: auto 0 auto auto;
+}
+
+.flibup-pos-bottom-left .flibup-dialog {
+	margin: auto auto 0 0;
+}
+
+.flibup-pos-bottom-center .flibup-dialog {
+	margin: auto auto 0;
+}
+
+.flibup-pos-bottom-right .flibup-dialog {
+	margin: auto 0 0 auto;
+}
+
+/* Sens de l'animation d'entrée, dérivé de la position. */
+.flibup-pos-top-left {
+	--flibup-anim-from: translate(-16px, -16px);
+}
+
+.flibup-pos-top-center {
+	--flibup-anim-from: translateY(-16px);
+}
+
+.flibup-pos-top-right {
+	--flibup-anim-from: translate(16px, -16px);
+}
+
+.flibup-pos-middle-left {
+	--flibup-anim-from: translateX(-16px);
+}
+
+.flibup-pos-middle-right {
+	--flibup-anim-from: translateX(16px);
+}
+
+.flibup-pos-bottom-left {
+	--flibup-anim-from: translate(-16px, 16px);
+}
+
+.flibup-pos-bottom-center {
+	--flibup-anim-from: translateY(16px);
+}
+
+.flibup-pos-bottom-right {
+	--flibup-anim-from: translate(16px, 16px);
+}
+
+/* --------------------------------------------------------------------------
+   Masque non bloquant : le site reste utilisable derrière la pop-up.
+   -------------------------------------------------------------------------- */
+
+.flibup-passthrough {
+	pointer-events: none;
+	overflow: visible;
+}
+
+.flibup-passthrough::before {
+	display: none;
+}
+
+.flibup-passthrough .flibup-dialog {
+	pointer-events: auto;
 }
 
 .flibup-title {
@@ -87,6 +179,102 @@
 
 .flibup-content :where(p):last-child {
 	margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Image du corps de la pop-up.
+   -------------------------------------------------------------------------- */
+
+.flibup-media {
+	margin: 0 0 20px;
+	line-height: 0;
+}
+
+.flibup-media img {
+	display: block;
+	width: var(--flibup-image-width, 100%);
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--flibup-image-radius, 0);
+}
+
+.flibup-media a {
+	display: block;
+	line-height: 0;
+}
+
+/* Alignement (sans effet si l'image occupe toute la largeur). */
+.flibup-img-align-center .flibup-media img {
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.flibup-img-align-right .flibup-media img {
+	margin-left: auto;
+	margin-right: 0;
+}
+
+.flibup-img-align-left .flibup-media img {
+	margin-left: 0;
+	margin-right: auto;
+}
+
+/* Image posée sous le texte ou sous le titre : marges ajustées. */
+.flibup-media-below_content {
+	margin: 20px 0 0;
+}
+
+.flibup-media-below_title {
+	margin: 0 0 20px;
+}
+
+/* En-tête pleine largeur : annule l'espacement interne de la pop-up et
+   reprend l'arrondi des angles supérieurs. */
+.flibup-media-top {
+	margin: calc(var(--flibup-padding, 32px) * -1) calc(var(--flibup-padding, 32px) * -1) var(--flibup-padding, 32px);
+	overflow: hidden;
+	border-radius: var(--flibup-radius, 8px) var(--flibup-radius, 8px) 0 0;
+}
+
+.flibup-media-top img {
+	width: 100%;
+	border-radius: 0;
+	object-fit: cover;
+}
+
+/* --------------------------------------------------------------------------
+   Boutons déclencheurs insérés dans les contenus (shortcode).
+   -------------------------------------------------------------------------- */
+
+.flibup-trigger {
+	font: inherit;
+	cursor: pointer;
+}
+
+.flibup-trigger-button {
+	display: inline-block;
+	padding: 12px 20px;
+	border: 0;
+	border-radius: 6px;
+	background: #1a7d33;
+	color: #fff;
+	line-height: 1.2;
+	text-decoration: none;
+	transition: background-color 0.15s ease;
+}
+
+.flibup-trigger-button:hover,
+.flibup-trigger-button:focus {
+	background: #125b25;
+	color: #fff;
+}
+
+.flibup-trigger-link {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	text-decoration: underline;
 }
 
 .flibup-actions {
